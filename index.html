@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Modern Flipbook</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+    }
+    .topnav {
+      height: 60px;
+      background: linear-gradient(90deg, #ff7e5f, #feb47b);
+      dispa-flickr-embed="true" href="https://www.flickr.com/photos/201102932@N05/55028842536/in/album-72177720331314730" title="pg1"><img src="https://live.staticflickr.com/65535/55028842536_0137c486a2_b.jpg" width="673" height="1024" alt="pg1"/></a><script async src="//embedr.flickr.com/assets/client-code.js" charset="utf-8"></script>lay: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .topnav button,
+    .topnav input[type="range"] {
+      margin: 0 10px;
+      padding: 10px 16px;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s ease-in-out;
+    }
+    .topnav button { background-color: #fff; color: #333; }
+    .topnav button:hover { background-color: #e0e0e0; }
+    #container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+    }
+    #flipbook-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      perspective: 2000px;
+    }
+    #flipbook {
+      position: relative;
+      width: 60vh;
+      height: 90vh;
+      user-select: none;
+      touch-action: none;
+      cursor: grab;
+    }
+    .page {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      transform-origin: left;
+      transition: transform 0.6s ease;
+      user-select: none;
+    }
+    .page img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      -webkit-user-drag: none;
+    }
+    .flipped { transform: rotateY(-180deg); z-index: 0 !important; }
+    .pseudo-iframe {
+      background: #e0e0e0;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+      padding: 20px 0;
+      display: flex;
+      justify-content: center;
+    }
+    @media (max-width: 768px) {
+      #flipbook { width: 90vw; height: 80vh; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topnav">
+    <button id="prev-btn">⬅ Prev</button>
+    <label for="zoom-slider" style="color:white;">Zoom:</label>
+    <input type="range" id="zoom-slider" min="50" max="200" value="100" />
+    <button id="next-btn">Next ➡</button>
+  </div>
+
+  <div class="pseudo-iframe">
+    <div id="container">
+      <div id="flipbook-container">
+        <div id="flipbook">
+          <div class="page"><img src="https://live.staticflickr.com/65535/55577326314_b0b37efe90_b.jpg" /></div>
+          <div class="page"><img src="https://live.staticflickr.com/65535/55577577105_0fa55d83a4_b.jpg" /></div>
+          <div class="page"><img src="https://live.staticflickr.com/65535/55577326549_0913b173a9_b.jpg" /></div>
+          <div class="page"><img src="https://live.staticflickr.com/65535/55577270128_b7df8a8111_b.jpg" /></div>
+          <div class="page"><img src="https://live.staticflickr.com/65535/55577326539_9dcae25f77_b.jpg" /></div>
+          <div class="page"><img src="https://live.staticflickr.com/65535/55577577355_3ae0f29f98_b.jpg" /></div>
+          <div class="page"><img src="https://live.staticflickr.com/65535/55577161001_58b19f04cc_b.jpg" /></div>
+          <div class="page"><img src="https://live.staticflickr.com/65535/55577270393_78fa342f82_b.jpg" /></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <audio id="page-sound" src="https://www.soundjay.com/misc/sounds/page-flip-4.mp3" preload="auto"></audio>
+
+  <script>
+    let currentPage = 0;
+    const pages = document.querySelectorAll('.page');
+    const flipbook = document.getElementById('flipbook');
+    const totalPages = pages.length;
+
+    pages.forEach((page, i) => {
+      page.style.zIndex = totalPages - i;
+    });
+
+    function flipToPage(pageNum) {
+      if (pageNum < 0 || pageNum >= totalPages) return;
+      pages.forEach((page, i) => {
+        page.classList.toggle('flipped', i < pageNum);
+      });
+      currentPage = pageNum;
+    }
+
+    function playSound() {
+      const audio = document.getElementById('page-sound');
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch((e) => {
+          console.warn("Sound blocked by browser:", e);
+        });
+      }
+    }
+
+    document.getElementById('prev-btn').addEventListener('click', () => {
+      if (currentPage > 0) {
+        flipToPage(currentPage - 1);
+        playSound();
+      }
+    });
+
+    document.getElementById('next-btn').addEventListener('click', () => {
+      if (currentPage < totalPages - 1) {
+        flipToPage(currentPage + 1);
+        playSound();
+      }
+    });
+
+    const zoomSlider = document.getElementById('zoom-slider');
+    let zoomFactor = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+
+    function updateTransform() {
+      flipbook.style.transform = `scale(${zoomFactor}) translate(${offsetX / zoomFactor}px, ${offsetY / zoomFactor}px)`;
+    }
+
+    zoomSlider.addEventListener('input', () => {
+      zoomFactor = zoomSlider.value / 100;
+      updateTransform();
+    });
+
+    // Mouse Panning
+    flipbook.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      isPanning = true;
+      startX = e.clientX - offsetX;
+      startY = e.clientY - offsetY;
+      flipbook.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      offsetX = e.clientX - startX;
+      offsetY = e.clientY - startY;
+      updateTransform();
+    });
+
+    document.addEventListener('mouseup', () => {
+      isPanning = false;
+      flipbook.style.cursor = 'grab';
+    });
+
+    // Touch Panning
+    flipbook.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      isPanning = true;
+      startX = touch.clientX - offsetX;
+      startY = touch.clientY - offsetY;
+    });
+
+    flipbook.addEventListener('touchmove', (e) => {
+      if (!isPanning) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      offsetX = touch.clientX - startX;
+      offsetY = touch.clientY - startY;
+      updateTransform();
+    });
+
+    flipbook.addEventListener('touchend', () => {
+      isPanning = false;
+    });
+
+    updateTransform(); // Initial
+  </script>
+</body>
+</html>
